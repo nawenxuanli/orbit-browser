@@ -1,0 +1,32 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Expand the current source archive
+        run: |
+          mkdir source
+          SOURCE_ARCHIVE=$(find . -maxdepth 1 -name 'Orbit-source-*.zip' | sort | tail -n 1)
+          test -n "$SOURCE_ARCHIVE"
+          unzip -q "$SOURCE_ARCHIVE" -d source
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+      - run: npm ci
+        working-directory: source
+      - run: npm test
+        working-directory: source
+      - run: npm audit
+        working-directory: source
