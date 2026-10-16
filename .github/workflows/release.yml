@@ -59,7 +59,7 @@ jobs:
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "" "$KEYCHAIN_PATH"
           security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$KEYCHAIN_PATH"
+          security set-keychain-partition-list -S apple-tool:,apple: -s -k "" "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH"
       - name: Prepare notarization key
         if: runner.os == 'macOS' && env.APPLE_API_KEY_BASE64 != ''
@@ -99,6 +99,6 @@ jobs:
           merge-multiple: true
       - uses: softprops/action-gh-release@v3
         with:
-          files: release-assets/*.zip
+          files: release-assets/**/*.zip
           prerelease: true
           body_path: source/RELEASE_NOTES.md
