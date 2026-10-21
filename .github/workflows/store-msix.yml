@@ -1,0 +1,72 @@
+name: Build and validate Orbit MSIX
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-and-certify:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: Expand the current source archive
+        shell: bash
+        run: |
+          mkdir source
+          SOURCE_ARCHIVE=$(find . -maxdepth 1 -name 'Orbit-source-*.zip' | sort | tail -n 1)
+          test -n "$SOURCE_ARCHIVE"
+          unzip -q "$SOURCE_ARCHIVE" -d source
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+      - name: Check Store identity inputs
+        shell: pwsh
+        env:
+          ORBIT_STORE_PACKAGE_ID: ${{ vars.ORBIT_STORE_PACKAGE_ID }}
+          ORBIT_STORE_PUBLISHER: ${{ vars.ORBIT_STORE_PUBLISHER }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:ORBIT_STORE_PACKAGE_ID) -or [string]::IsNullOrWhiteSpace($env:ORBIT_STORE_PUBLISHER)) {
+            throw 'Reserve Orbit in Partner Center, then set repository Actions variables ORBIT_STORE_PACKAGE_ID and ORBIT_STORE_PUBLISHER from its package identity.'
+          }
+      - run: npm ci
+        working-directory: source
+      - run: npm test
+        working-directory: source
+      - run: npm run build:store-assets
+        working-directory: source
+      - name: Build the Windows Store MSIX
+        shell: pwsh
+        env:
+          ORBIT_STORE_BUILD: '1'
+          ORBIT_STORE_PACKAGE_ID: ${{ vars.ORBIT_STORE_PACKAGE_ID }}
+          ORBIT_STORE_PUBLISHER: ${{ vars.ORBIT_STORE_PUBLISHER }}
+        run: npm run make:store
+        working-directory: source
+      - name: Run Windows App Certification Kit
+        shell: pwsh
+        run: |
+          $package = Get-ChildItem -Path source/out/make -Filter *.msix -Recurse | Select-Object -First 1
+          if (-not $package) { throw 'The MSIX maker did not produce a package.' }
+          $kitRoot = Join-Path [Environment]::GetFolderPath('ProgramFilesX86') 'Windows Kits/10/App Certification Kit'
+          $appcert = Join-Path $kitRoot 'appcert.exe'
+          if (-not (Test-Path $appcert)) { throw "Windows App Certification Kit was not found at $appcert. Use a Windows runner with the Windows SDK App Certification Kit installed." }
+          New-Item -ItemType Directory -Force -Path source/out/wack | Out-Null
+          & $appcert reset
+          if ($LASTEXITCODE -ne 0) { throw "appcert reset failed with exit code $LASTEXITCODE" }
+          & $appcert test -appxpackagepath $package.FullName -reportoutputpath (Join-Path (Resolve-Path source/out/wack) 'Orbit-WACK.xml')
+          if ($LASTEXITCODE -ne 0) { throw "Windows App Certification Kit failed with exit code $LASTEXITCODE" }
+      - name: Keep the package and certification report for review
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Orbit-MSIX-and-WACK
+          path: |
+            source/out/make/**/*.msix
+            source/out/wack/**
+          if-no-files-found: warn
+          retention-days: 14
