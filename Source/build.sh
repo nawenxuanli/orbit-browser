@@ -10,7 +10,8 @@ for architecture in arm64 x86_64; do
 done
 lipo -create "$build_dir/Orbit-arm64" "$build_dir/Orbit-x86_64" -output "$app_dir/Contents/MacOS/Orbit"
 cp "$source_dir/Info.plist" "$app_dir/Contents/Info.plist"
-cp "$source_dir/Orbit.icns" "$app_dir/Contents/Resources/Orbit.icns"
+xcrun swift -module-cache-path "$build_dir/cache" "$source_dir/MakeIcon.swift" "$build_dir/Orbit.iconset" "$build_dir/Orbit.icns"
+cp "$build_dir/Orbit.icns" "$app_dir/Contents/Resources/Orbit.icns"
 xattr -d com.apple.FinderInfo "$app_dir" 2>/dev/null || true
 codesign --force --sign - "$app_dir"
 codesign --verify --deep --strict "$app_dir"
