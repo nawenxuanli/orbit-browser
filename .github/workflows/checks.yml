@@ -1,32 +1,30 @@
-name: Checks
+name: Native macOS build
 
 on:
-  pull_request:
   push:
     branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  checks:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: macos-15
     steps:
-      - uses: actions/checkout@v7
-      - name: Expand the current source archive
+      - uses: actions/checkout@v4
+      - name: Check build script and app metadata
         run: |
-          mkdir source
-          SOURCE_ARCHIVE=$(find . -maxdepth 1 -name 'Orbit-source-*.zip' | sort | tail -n 1)
-          test -n "$SOURCE_ARCHIVE"
-          unzip -q "$SOURCE_ARCHIVE" -d source
-      - uses: actions/setup-node@v7
+          bash -n Source/build.sh
+          plutil -lint Source/Info.plist
+      - name: Build Apple silicon and Intel app
+        run: bash Source/build.sh
+      - name: Package development build
+        run: ditto -c -k --norsrc --noextattr --keepParent Orbit.app Orbit-macOS-development.zip
+      - uses: actions/upload-artifact@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: source/package-lock.json
-      - run: npm ci
-        working-directory: source
-      - run: npm test
-        working-directory: source
-      - run: npm audit
-        working-directory: source
+          name: Orbit-macOS-development
+          path: Orbit-macOS-development.zip
+          if-no-files-found: error
+          retention-days: 14

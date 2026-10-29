@@ -1,39 +1,56 @@
-# Orbit
+# Orbit 0.3 — a fresh start for Mac
 
-Orbit is an experimental desktop browser MVP with an original visual identity. It uses the Chromium engine bundled with Electron and is not affiliated with Brave, Vivaldi, or their publishers.
+Orbit has been rebuilt from scratch as a native Mac browser using SwiftUI and Apple's WebKit. This replaces the earlier Electron implementation on the main branch. It began as the Cove prototype and is now the new Orbit.
 
-**Prebuilt downloads:** Windows x64 and Linux x64 only. macOS downloads have been withdrawn because the previous Mac packages were unsigned, not notarized, and macOS blocked them. Do not use older Mac downloads. Orbit will offer Mac downloads again only after signed and notarized builds are available.
+The previous implementation is retained in Git history and its existing tags. The new version targets macOS only; earlier Windows and Linux builds do not describe this version.
 
-## Architecture
+## Open Orbit
 
-- **Main process:** owns browser windows, tab WebContentsViews, navigation, local JSON persistence, and website permission prompts.
-- **Browser chrome:** a local HTML/CSS/JS interface with a narrowly scoped preload bridge. It receives named UI events and sends validated command names over IPC.
-- **Websites:** each tab has its own WebContentsView with Chromium site isolation, context isolation, renderer sandbox, Node integration disabled, and web security enabled. Popups become tabs. Searches and bare hostnames use HTTPS; explicitly entered HTTP addresses are allowed. Text searches use DuckDuckGo.
-- **Data:** bookmarks, recent visit history, notes, downloads, web panels, saved permission choices, and preferences are stored per profile in Orbit's Electron user-data folder. Private windows use non-persistent Electron sessions. No telemetry is sent.
-- **Content blocking:** the optional blocker uses the open-source [Ghostery Adblocker](https://github.com/ghostery/adblocker). It downloads third-party filter rules when enabled, caches them locally, and sends no browsing history or page data to fetch them. The blocker is disabled by default.
+Build locally using the instructions below, or download the development artifact from a successful [Native macOS build](https://github.com/nawenxuanli/orbit-browser/actions/workflows/checks.yml) run (GitHub sign-in may be required). Unzip the artifact, then unzip Orbit-macOS-development.zip and open Orbit.app. You can drag the app into Applications if you want to keep it there.
 
-## Run locally
+This update does not publish a new GitHub Release. Earlier releases remain withdrawn.
 
-Install Node.js 22.13 or later, then run npm install followed by npm start. To create a ZIP for your current operating system, run npm run make. Electron Forge places it under out/make. Local builds depend on Electron Forge and the current OS. The GitHub release workflow publishes Windows x64 and Linux x64 packages only.
+Requires macOS 13 Ventura or later. Includes Apple silicon and Intel binaries. The Apple silicon build was launched and checked on this Mac; the Intel build was compiled but has not been run on an Intel Mac.
 
-## Downloads
+This is a locally built development app with an ad hoc signature, not an Apple-notarized release. A downloaded copy may be blocked by macOS security checks. No developer account or signing credentials were used.
 
-Download the Windows x64 or Linux x64 ZIP from the [GitHub Releases page](https://github.com/nawenxuanli/orbit-browser/releases). Linux distributions may require system libraries. All builds are experimental previews.
+## Included
 
-### macOS downloads withdrawn
+- Search or enter an address in the toolbar; DuckDuckGo is the default, with Google and Bing available in Customize.
+- Collapsible sidebar with tabs and named groups. Use Create group; use the plus beside a group to open a tab there. Right-click a tab to move it between groups.
+- Tabs and groups restore on launch. Search/address focus: Command-L. New tab: Command-T while the sidebar is visible.
+- Bookmark the current page with the bookmark icon; open or remove saved bookmarks in Bookmarks.
+- History lists the last 1,000 completed page visits. Clearing history also closes the current tabs and opens a fresh tab, removing their back/forward lists. Cookies are cleared separately in Privacy.
+- Privacy controls for known ad domains and known tracker domains. Changes reload open pages. Website data clearing signs you out of sites.
+- Media controls for play/pause, mute, and skipping ten seconds in the selected tab.
+- System, light, and dark appearance, plus Ocean, Forest, and Lavender accents.
 
-The previous Mac ZIPs were unsigned and not notarized, and macOS rejected them as damaged. They have been removed. Orbit does not currently provide a supported macOS download.
+## Privacy and compatibility limits
 
-## Checks and security
+The blocker is a small static list of 17 domains, not a comprehensive or automatically updated filtering system. It cannot block all advertising or tracking, including many first-party and video ads. Orbit does not claim anonymity. Websites and your chosen search provider receive normal browsing requests. History, bookmarks, settings, and saved tab addresses are stored locally in macOS preferences; WebKit manages cookies and website storage.
 
-Run npm test for local automated checks. GitHub Actions runs tests and a dependency audit on pushes and pull requests, plus scheduled CodeQL analysis. Automated checks are not a security certification or independent security audit.
+Media controls operate on standard audio and video elements in the selected page. Cross-origin embedded players, protected streaming services, and other Mac apps may not respond. Spotify and YouTube shortcuts open their websites; support for a particular streaming service has not been verified.
 
-## Current scope
+This first version has no extension marketplace, password manager, sync, download manager, automatic updates, or default-browser registration. External app URL schemes are not launched. Camera/microphone workflows and complex websites have not been comprehensively tested. Use an established browser for workflows that this build does not yet support.
 
-Implemented features include navigation and search, tabs with pinning and named groups, bookmarks, history with clear controls, downloads, local notes, four appearance themes, a hideable and reorderable toolbar, configurable shortcuts, website permission prompts and a privacy dashboard, separate profiles, private windows, and saved web panels in a side view. Browser extensions, cross-device sync, and a password manager are not implemented. Orbit does not claim Brave or Vivaldi feature parity or privacy-audit certification.
+## Validation
 
-The optional blocker refreshes its Ghostery filter cache after seven days when next activated. If refresh fails, it keeps the previous cached rules. It can miss ads or trackers and does not include cosmetic page cleanup. Web panels depend on network access and site behavior.
+- The renamed Orbit app compiled for both arm64 and x86_64.
+- The universal app launched on Apple silicon and loaded an HTTPS webpage.
+- Bookmark saving, restored tabs, creating a group, customization choices, and privacy controls were checked in the app.
+- All 17 blocking rules compiled. An engine-level check confirmed that a known ad domain was blocked and an ordinary HTTPS page still loaded with the rules enabled.
+- Local code-signature verification passed before packaging.
+- Media controls and clearing data are implemented but have not been tested against a broad set of websites.
 
-## Security notes
+## Build from source
 
-Electron and Chromium provide important isolation primitives, but Orbit has not had an independent security audit. Website permission requests are shown before access; users can allow or deny once, or remember the choice for that site and permission in a regular profile. Private windows do not save those choices. Unhandled schemes are blocked. See SECURITY.md for vulnerability reporting and THIRD_PARTY_NOTICES.md for blocker attribution and license.
+Requires Xcode and its command-line tools on macOS. From the repository folder:
+
+```sh
+bash Source/build.sh
+open Orbit.app
+```
+
+Source/Orbit.swift contains the application. Source/Info.plist and Source/MakeIcon.swift contain its bundle information and icon generator. With a current Xcode installation, run Source/build.sh in Terminal to rebuild the universal application locally.
+
+WebKit content blocking reference: https://developer.apple.com/documentation/webkit/wkcontentruleliststore
