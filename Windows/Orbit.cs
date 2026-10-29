@@ -182,7 +182,7 @@ public class Browser : Window {
  }
  async Task SmokeTest() {
   Directory.CreateDirectory(SmokeOutput);
-  Width=1440;Height=900;UpdateLayout();
+  MinWidth=1440;MinHeight=900;Width=1440;Height=900;UpdateLayout();
   NewTab();
   var t=selected!;
   for(int i=0;i<200&&!t.Ready;i++) await Task.Delay(100);
@@ -194,16 +194,13 @@ public class Browser : Window {
    try { t.Web.CoreWebView2.Navigate(url); var completed=await Task.WhenAny(done.Task,Task.Delay(30000)); if(completed!=done.Task)throw new Exception("Navigation timeout: "+url); }
    finally { t.Web.CoreWebView2.NavigationCompleted-=Completed; }
   }
-  await Task.Delay(1000);
-  await Load("https://example.com");
-  if(!t.Web.CoreWebView2.DocumentTitle.Contains("Example Domain"))throw new Exception("HTTPS navigation failed");
-  await Load("https://doubleclick.net/orbit-smoke-test");
-  if(blockedRequests==0)throw new Exception("Ad-domain blocking failed");
-  var screenshotReady=new TaskCompletionSource<bool>();
-  void HomeLoaded(object? sender,CoreWebView2NavigationCompletedEventArgs e) { screenshotReady.TrySetResult(e.IsSuccess); }
-  t.Web.CoreWebView2.NavigationCompleted+=HomeLoaded;Home(t);
-  await Task.WhenAny(screenshotReady.Task,Task.Delay(10000));t.Web.CoreWebView2.NavigationCompleted-=HomeLoaded;
-  await Task.Delay(500);
+  bool homeReady=false;
+  for(int i=0;i<100;i++) {
+   var home=await t.Web.ExecuteScriptAsync("document.body && document.body.innerText.includes('Less noise.')");
+   if(home=="true"){homeReady=true;break;} await Task.Delay(100);
+  }
+  if(!homeReady)throw new Exception("Start page did not render");
+  address.Text="";status.Text="Known-domain protection: ads on, trackers on";
   using var preview=new MemoryStream();
   await t.Web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png,preview);
   preview.Position=0;var webImage=new BitmapImage();webImage.BeginInit();webImage.CacheOption=BitmapCacheOption.OnLoad;webImage.StreamSource=preview;webImage.EndInit();
@@ -211,7 +208,11 @@ public class Browser : Window {
   var visual=new DrawingVisual();using(var dc=visual.RenderOpen()) { dc.DrawImage(chrome,new Rect(0,0,ActualWidth,ActualHeight));var point=t.Web.TranslatePoint(new Point(0,0),this);dc.DrawImage(webImage,new Rect(point.X,point.Y,t.Web.ActualWidth,t.Web.ActualHeight)); }
   var result=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);result.Render(visual);
   var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(result));using(var file=File.Create(Path.Combine(SmokeOutput,"Orbit-Windows.png")))png.Save(file);
-  File.WriteAllText(Path.Combine(SmokeOutput,"smoke-test.txt"),"PASS: WebView2 initializes; ordinary HTTPS page loads; known ad domain blocked; app screenshot captured.");
+  await Load("https://example.com");
+  if(!t.Web.CoreWebView2.DocumentTitle.Contains("Example Domain"))throw new Exception("HTTPS navigation failed");
+  await Load("https://doubleclick.net/orbit-smoke-test");
+  if(blockedRequests==0)throw new Exception("Ad-domain blocking failed");
+  File.WriteAllText(Path.Combine(SmokeOutput,"smoke-test.txt"),"PASS: start page renders; WebView2 initializes; ordinary HTTPS page loads; known ad domain blocked; app screenshot captured.");
   Application.Current.Shutdown(0);
  }
  void Home(BrowserTab t) {
