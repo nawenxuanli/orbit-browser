@@ -2,9 +2,13 @@
 
 Orbit has been rebuilt from scratch as a native Mac browser using SwiftUI and Apple's WebKit. This replaces the earlier Electron implementation on the main branch. It began as the Cove prototype and is now the new Orbit.
 
-The previous implementation is retained in Git history and its existing tags. The new version targets macOS only; earlier Windows and Linux builds do not describe this version.
+The previous implementation is retained in Git history and its existing tags. The native Mac version is accompanied by a Windows preview in [Windows/](Windows/README.md). Earlier Electron Windows and Linux builds do not describe these versions.
 
-## Open Orbit
+## Windows preview
+
+The Windows companion uses WPF and Microsoft Edge WebView2 on Windows 10 version 2004 or later, x64. See [Windows setup and limitations](Windows/README.md) and the [Windows Store package workflow](https://github.com/nawenxuanli/orbit-browser/actions/workflows/windows.yml). The Microsoft Store entry is a draft, not a published listing.
+
+## Open Orbit for Mac
 
 Build locally using the instructions below, or download the development artifact from a successful [Native macOS build](https://github.com/nawenxuanli/orbit-browser/actions/workflows/checks.yml) run (GitHub sign-in may be required). Unzip the artifact, then unzip Orbit-macOS-development.zip and open Orbit.app. You can drag the app into Applications if you want to keep it there.
 
