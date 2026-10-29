@@ -28,6 +28,7 @@ public class BrowserTab {
  public string Url = "";
  public string Group = "Personal";
  public WebView2 Web = new();
+ public Grid HomePanel = new();
  public bool Ready;
  public bool Closed;
  public override string ToString() => Title;
@@ -130,6 +131,7 @@ public class Browser : Window {
   address.Foreground=Foreground; address.CaretBrush=Accent; status.Foreground=Accent;
   sidebar.Background = Background;
   foreach (var button in sidebar.Children.OfType<Button>()) { button.Background=Background; button.Foreground=Foreground; button.BorderBrush=Brushes.Transparent; }
+  foreach(var tab in tabs.Where(t=>string.IsNullOrEmpty(t.Url))) Home(tab);
   RefreshTabs();
  }
  void Save() {
@@ -144,11 +146,11 @@ public class Browser : Window {
   if(!text.Any(char.IsWhiteSpace) && !text.Contains(':') && text.Contains('.') && Uri.TryCreate("https://"+text,UriKind.Absolute,out _)) return "https://"+text;
   return (engine=="Google" ? "https://www.google.com/search?q=" : engine=="Bing" ? "https://www.bing.com/search?q=" : "https://duckduckgo.com/?q=")+Uri.EscapeDataString(text);
  }
- void Navigate(string input) { if(!string.IsNullOrWhiteSpace(input) && selected?.Ready==true) { selected.Web.Visibility=Visibility.Visible; selected.Web.CoreWebView2.Navigate(Address(input,state.Engine)); } }
+ void Navigate(string input) { if(!string.IsNullOrWhiteSpace(input) && selected?.Ready==true) { selected.HomePanel.Visibility=Visibility.Collapsed; selected.Web.Visibility=Visibility.Visible; selected.Web.CoreWebView2.Navigate(Address(input,state.Engine)); } }
  async void NewTab(string url="",string group="Personal") {
   if(!ready) return;
   if(!state.Groups.Contains(group)) state.Groups.Add(group);
-  var t=new BrowserTab { Group=group }; tabs.Add(t); pages.Children.Add(t.Web); Select(t); RefreshTabs();
+  var t=new BrowserTab { Group=group }; tabs.Add(t); pages.Children.Add(t.Web); pages.Children.Add(t.HomePanel); Home(t); Select(t); RefreshTabs();
   try {
    await t.Web.EnsureCoreWebView2Async(environment);
    if(t.Closed) return;
@@ -161,6 +163,7 @@ public class Browser : Window {
    };
    core.NavigationStarting += (_,e) => {
     if(!Uri.TryCreate(e.Uri,UriKind.Absolute,out var uri) || !(uri.Scheme=="https" || uri.Scheme=="http" || e.Uri=="about:blank")) { e.Cancel=true; return; }
+    if(e.Uri.StartsWith("http")) { t.HomePanel.Visibility=Visibility.Collapsed; t.Web.Visibility=selected==t?Visibility.Visible:Visibility.Collapsed; }
     if(selected==t) status.Text="Loading…";
    };
    core.SourceChanged += (_,_) => { if(core.Source.StartsWith("http")) { t.Url=core.Source; if(selected==t && !address.IsKeyboardFocused) address.Text=t.Url; } };
@@ -177,7 +180,7 @@ public class Browser : Window {
     var save=new SaveFileDialog { FileName=Path.GetFileName(e.ResultFilePath), Title="Save download" };
     if(save.ShowDialog(this)==true) { e.ResultFilePath=save.FileName; e.Handled=true; } else e.Cancel=true;
    };
-   if(!string.IsNullOrEmpty(url)) { t.Url=Address(url,state.Engine); core.Navigate(t.Url); } else Home(t);
+   if(!string.IsNullOrEmpty(url)) { t.Url=Address(url,state.Engine); t.HomePanel.Visibility=Visibility.Collapsed; t.Web.Visibility=selected==t?Visibility.Visible:Visibility.Collapsed; core.Navigate(t.Url); }
   } catch(Exception ex) { status.Text="Tab could not start: "+ex.Message; }
  }
  async Task SmokeTest() {
@@ -194,19 +197,10 @@ public class Browser : Window {
    try { t.Web.CoreWebView2.Navigate(url); var completed=await Task.WhenAny(done.Task,Task.Delay(30000)); if(completed!=done.Task)throw new Exception("Navigation timeout: "+url); }
    finally { t.Web.CoreWebView2.NavigationCompleted-=Completed; }
   }
-  bool homeReady=false;
-  for(int i=0;i<100;i++) {
-   var home=await t.Web.ExecuteScriptAsync("document.body && document.body.innerText.includes('Less noise.')");
-   if(home=="true"){homeReady=true;break;} await Task.Delay(100);
-  }
-  if(!homeReady)throw new Exception("Start page did not render");
+  if(t.HomePanel.Children.Count==0 || t.HomePanel.Visibility!=Visibility.Visible)throw new Exception("Native start page did not render");
   address.Text="";status.Text="Known-domain protection: ads on, trackers on";
-  using var preview=new MemoryStream();
-  await t.Web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png,preview);
-  preview.Position=0;var webImage=new BitmapImage();webImage.BeginInit();webImage.CacheOption=BitmapCacheOption.OnLoad;webImage.StreamSource=preview;webImage.EndInit();
-  var chrome=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);chrome.Render(this);
-  var visual=new DrawingVisual();using(var dc=visual.RenderOpen()) { dc.DrawImage(chrome,new Rect(0,0,ActualWidth,ActualHeight));var point=t.Web.TranslatePoint(new Point(0,0),this);dc.DrawImage(webImage,new Rect(point.X,point.Y,t.Web.ActualWidth,t.Web.ActualHeight)); }
-  var result=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);result.Render(visual);
+  UpdateLayout();await Task.Delay(500);
+  var result=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);result.Render(this);
   var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(result));using(var file=File.Create(Path.Combine(SmokeOutput,"Orbit-Windows.png")))png.Save(file);
   await Load("https://example.com");
   if(!t.Web.CoreWebView2.DocumentTitle.Contains("Example Domain"))throw new Exception("HTTPS navigation failed");
@@ -216,16 +210,25 @@ public class Browser : Window {
   Application.Current.Shutdown(0);
  }
  void Home(BrowserTab t) {
-  t.Url="";t.Title="New tab";
-  t.Web.NavigateToString("<!doctype html><html><head><meta name='color-scheme' content='dark light'><title>New tab</title><style>body{font:16px Segoe UI,sans-serif;background:#1b2026;color:#eef4f6;margin:0}main{max-width:650px;margin:16vh auto;padding:40px}small{color:#42c4de;letter-spacing:4px}h1{font:64px Georgia;letter-spacing:-2px}p{color:#b1bac1}a{display:inline-block;padding:20px;color:#65d8ed;background:#252e38;margin:8px;border-radius:12px;text-decoration:none}</style></head><body><main><small>A LITTLE SPACE TO EXPLORE</small><h1>Less noise.<br>More possibility.</h1><p>Search or enter a website in the address bar above.</p><a href='https://wikipedia.org'>Wikipedia</a><a href='https://youtube.com'>YouTube</a><a href='https://open.spotify.com'>Spotify</a><p>Made for a calmer corner of the internet.</p></main></body></html>");
+  t.Url="";t.Title="New tab";t.Web.Visibility=Visibility.Hidden;
+  var body=new StackPanel { MaxWidth=650,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(55) };
+  body.Children.Add(new TextBlock { Text="A LITTLE SPACE TO EXPLORE",Foreground=Accent,FontSize=12,Margin=new Thickness(5,10,5,15) });
+  body.Children.Add(new TextBlock { Text="Less noise.\nMore possibility.",FontFamily=new FontFamily("Georgia"),FontSize=56,Foreground=Foreground,Margin=new Thickness(5,10,5,15) });
+  body.Children.Add(Text("Your corner of the internet. Make yourself at home."));
+  var search=new TextBox { Padding=new Thickness(14),Margin=new Thickness(5,20,5,20),FontSize=16,ToolTip="Search with "+state.Engine };
+  search.KeyDown+=(_,e)=>{if(e.Key==Key.Enter){Select(t);Navigate(search.Text);}};body.Children.Add(search);
+  var quick=new StackPanel { Orientation=Orientation.Horizontal };
+  foreach(var link in new[]{("Wikipedia","https://wikipedia.org"),("YouTube","https://youtube.com"),("Spotify","https://open.spotify.com")}) quick.Children.Add(Button(link.Item1,()=>{Select(t);Navigate(link.Item2);}));
+  body.Children.Add(quick);body.Children.Add(Text("Search with "+state.Engine+" · Ctrl+L focuses the address bar",12));
+  t.HomePanel.Background=Background;t.HomePanel.Children.Clear();t.HomePanel.Children.Add(body);t.HomePanel.Visibility=Visibility.Visible;
   RefreshTabs();
  }
  void Select(BrowserTab t) {
-  selected=t; foreach(var x in tabs) x.Web.Visibility=x==t?Visibility.Visible:Visibility.Collapsed;
+  selected=t; foreach(var x in tabs) { x.Web.Visibility=x==t&&!string.IsNullOrEmpty(x.Url)?Visibility.Visible:Visibility.Hidden; x.HomePanel.Visibility=x==t&&string.IsNullOrEmpty(x.Url)?Visibility.Visible:Visibility.Collapsed; }
   address.Text=t.Url; Title=t.Title+" — Orbit Browser"; RefreshTabs();
  }
  void CloseTab(BrowserTab t) {
-  t.Closed=true; pages.Children.Remove(t.Web); t.Web.Dispose(); tabs.Remove(t);
+  t.Closed=true; pages.Children.Remove(t.Web); pages.Children.Remove(t.HomePanel); t.Web.Dispose(); tabs.Remove(t);
   if(selected==t) { selected=null; if(tabs.Count>0) Select(tabs[^1]); else NewTab(); } RefreshTabs(); Save();
  }
  void RefreshTabs() {
