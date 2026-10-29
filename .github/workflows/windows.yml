@@ -1,0 +1,39 @@
+name: Windows Store package
+on:
+  push:
+    branches: [main, orbit-windows-store]
+    paths: ['Windows/**', '.github/workflows/windows.yml']
+  pull_request:
+    paths: ['Windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Ensure Microsoft WebView2 Runtime is available
+        shell: pwsh
+        run: |
+          $paths = @('HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}')
+          if (-not ($paths | Where-Object { Test-Path $_ })) {
+            Invoke-WebRequest https://go.microsoft.com/fwlink/p/?LinkId=2124703 -OutFile "$env:RUNNER_TEMP/WebView2Setup.exe"
+            $p = Start-Process "$env:RUNNER_TEMP/WebView2Setup.exe" -ArgumentList '/silent /install' -Wait -PassThru
+            if ($p.ExitCode -notin @(0, 3010)) { throw "WebView2 setup failed: $($p.ExitCode)" }
+          }
+      - name: Build, exercise browser, and package MSIX
+        shell: pwsh
+        run: ./Windows/Build.ps1 -SmokeTest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Orbit-Windows-Store
+          path: |
+            Windows/out/*.msix
+            Windows/out/verification/*
+          if-no-files-found: error
+          retention-days: 14
