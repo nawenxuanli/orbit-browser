@@ -6,7 +6,7 @@ Native Windows companion to Orbit for Mac, built with WPF, .NET 8, and Microsoft
 
 Search with DuckDuckGo, Google, or Bing; organize tabs into named groups; save bookmarks; review or clear history; toggle a limited domain blocker; control standard page audio/video; change appearance and accent; and save downloads using a file picker. Tabs, groups, bookmarks, history, and preferences persist locally.
 
-This preview denies website permissions, including camera, microphone, location, and notifications. It does not include extensions, sync, a password manager, private windows, or default-browser registration. Protected streaming and embedded media players may not support the media controls. Blocking uses the same small 17-domain list as the Mac app and cannot block every ad or tracker. The start page retains its dark appearance when the window theme is light.
+This preview denies website permissions, including camera, microphone, location, and notifications. It does not include extensions, sync, a password manager, private windows, or default-browser registration. Protected streaming and embedded media players may not support the media controls. Blocking uses the same small 17-domain list as the Mac app and cannot block every ad or tracker.
 
 ## Build
 
