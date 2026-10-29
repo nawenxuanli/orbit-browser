@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" IgnorableNamespaces="uap desktop rescap">
+ <Identity Name="NawenxuanLi.OrbitBrowser" Publisher="CN=4A776E4F-5417-4C90-9904-13E1E3DD0579" Version="0.3.0.0" ProcessorArchitecture="x64" />
+ <Properties><DisplayName>Orbit Browser</DisplayName><PublisherDisplayName>Nawenxuan Li</PublisherDisplayName><Logo>Assets\StoreLogo.png</Logo></Properties>
+ <Resources><Resource Language="en-us" /></Resources>
+ <Dependencies><TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" /></Dependencies>
+ <Applications><Application Id="Orbit" Executable="Orbit.exe" EntryPoint="Windows.FullTrustApplication"><uap:VisualElements DisplayName="Orbit Browser" Description="A clean browser with tabs, bookmarks, privacy controls, and media controls." BackgroundColor="#1B2026" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" /></Application></Applications>
+ <Capabilities><Capability Name="internetClient" /><rescap:Capability Name="runFullTrust" /></Capabilities>
+</Package>
